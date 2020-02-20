@@ -37,7 +37,7 @@ const double exponent[] = { 1.0e-9, 1.0e-8, 1.0e-7, 1.0e-6, 1.0e-5, 1.0e-4, 1.0e
   1.0, 1.0e1, 1.0e2, 1.0e3, 1.0e4, 1.0e5, 1.0e6, 1.0e7, 1.0e8, 1.0e9 };
 
 } // end file-local namespace
-double CoinMpsCardReader::osi_strtod(char *ptr, char **output, int type)
+double CoinMpsCardReader::osi_strtod(char *ptr, char **output, int type) //type is the sign type?
 {
 
   double value = 0.0;
@@ -46,6 +46,7 @@ double CoinMpsCardReader::osi_strtod(char *ptr, char **output, int type)
   // take off leading white space
   while (*ptr == ' ' || *ptr == '\t')
     ptr++;
+// first read the sign, if type=0, then assign positive sign
   if (!type) {
     double sign1 = 1.0;
     // do + or -
@@ -58,6 +59,8 @@ double CoinMpsCardReader::osi_strtod(char *ptr, char **output, int type)
     // more white space
     while (*ptr == ' ' || *ptr == '\t')
       ptr++;
+	  
+// reading data of current char
     char thisChar = 0;
     while (value < 1.0e30) {
       thisChar = *ptr;
@@ -67,11 +70,12 @@ double CoinMpsCardReader::osi_strtod(char *ptr, char **output, int type)
       else
         break;
     }
+	  
     if (value < 1.0e30) {
       if (thisChar == '.') {
         // do fraction
         double value2 = 0.0;
-        int nfrac = 0;
+        int nfrac = 0; // count number of decimal
         while (nfrac < 24) {
           thisChar = *ptr;
           ptr++;
@@ -83,21 +87,23 @@ double CoinMpsCardReader::osi_strtod(char *ptr, char **output, int type)
           }
         }
         if (nfrac < 24) {
-          value += value2 * fraction[nfrac];
+          value += value2 * fraction[nfrac]; //fraction[] is defined in the namespace at the beginning
         } else {
           thisChar = 'x'; // force error
         }
       }
+	    // present exponential numbers
       if (thisChar == 'e' || thisChar == 'E') {
         // exponent
         int sign2 = 1;
-        // do + or -
+        // sign: do + or -
         if (*ptr == '-') {
           sign2 = -1;
           ptr++;
         } else if (*ptr == '+') {
           ptr++;
         }
+	      //get value
         int value3 = 0;
         while (value3 < 1000) {
           thisChar = *ptr;
@@ -114,7 +120,7 @@ double CoinMpsCardReader::osi_strtod(char *ptr, char **output, int type)
             // do most common by lookup (for accuracy?)
             value *= exponent[value3 + 9];
           } else {
-            value *= pow(10.0, value3);
+            value *= pow(10.0, value3); //why doing this?
           }
         } else if (sign2 < 0.0) {
           value = 0.0; // force zero
@@ -126,16 +132,16 @@ double CoinMpsCardReader::osi_strtod(char *ptr, char **output, int type)
         // okay
         *output = ptr;
       } else {
-        value = osi_strtod(save, output);
+        value = osi_strtod(save, output); /* what does this mean? */
         sign1 = 1.0;
       }
     } else {
-      // bad value
+      /* bad value, this is when value > 1*e30 */
       value = osi_strtod(save, output);
       sign1 = 1.0;
     }
     value *= sign1;
-  } else {
+  } else { /* this is with !type=0, i.e., type=1, in other words, there is a format*/
     // ieee - 3 bytes go to 2
     assert(sizeof(double) == 8 * sizeof(char));
     assert(sizeof(unsigned short) == 2 * sizeof(char));
@@ -1643,7 +1649,7 @@ int CoinMpsIO::readMps(int &numberSets, CoinSet **&sets)
     numberRows_ = 0;
     numberColumns_ = 0;
     numberElements_ = 0;
-    COINRowIndex maxRows = 1000;
+    COINRowIndex maxRows = 1000;			//maximum # of constraints si 1000?
     COINMpsType *rowType =
 
       reinterpret_cast< COINMpsType * >(malloc(maxRows * sizeof(COINMpsType)));
@@ -2653,6 +2659,8 @@ int CoinMpsIO::readMps(int &numberSets, CoinSet **&sets)
       }
     }
     free(columnType);
+	  
+//reading from QUAD session
     if (cardReader_->whichSection() != COIN_ENDATA_SECTION && cardReader_->whichSection() != COIN_QUAD_SECTION && cardReader_->whichSection() != COIN_CONIC_SECTION) {
       handler_->message(COIN_MPS_BADIMAGE, messages_) << cardReader_->cardNumber()
                                                       << cardReader_->card()
